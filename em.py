@@ -1,7 +1,7 @@
 #!/bin/python
 
 def expect(e, j, maxE2J):
-ßßßß    return enumAlign(e, j, maxE2J)
+    return enumAlign(e, j, maxE2J)
 
 
 #
