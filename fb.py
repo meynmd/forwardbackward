@@ -1,5 +1,13 @@
 from collections import defaultdict
 
+def Expectation(wordPairs, prior, maxE2J):
+    for eword, jword in wordPairs:
+        e, j = eword.split(), jword.split()
+        alpha = Forward(e, j, prior, maxE2J)
+        beta = Backward(e, j, prior, maxE2J)
+
+
+
 '''
 forward
 eprons:     list of English sounds
@@ -24,6 +32,7 @@ def Forward(eprons, jprons, prior, maxE2J):
 
 
 def Backward(eprons, jprons, prior, maxE2J):
+    # beta: prob. of getting to final state from this state
     numJ, numE = len(jprons), len(eprons)
     beta = [[0. for i in range(numJ + 1)] for j in range(numE + 1)]
     beta[numE][numJ] = 1.
@@ -37,7 +46,26 @@ def Backward(eprons, jprons, prior, maxE2J):
 
 
 
-def FindFracCounts(alpha, beta):
+def FindFracCounts(eprons, jprons, alpha, beta, prior, maxE2J):
+    numJ, numE = len(jprons), len(eprons)
+    counts = defaultdict(lambda : defaultdict(float))
+    total = 0.
+    # sum probabilities for each alignment
+    for i in range(numE):
+        for j in range(numJ):
+            for k in range(1, min(numJ - j, maxE2J) +1):
+                ep, js = eprons[i], tuple(jprons[j: j + k])
+                # count for align is forward * backward * prior probability
+                c = alpha[i][j + k - 1] * beta[i][j + k - 1] * prior[ep][js]
+                counts[ep][js] += c
+                total += c
+    # normalize
+    for e, d in counts.items():
+        for j in d.keys():
+            counts[e][j] /= total
+
+    return counts
+
 
 
 
@@ -90,5 +118,5 @@ if __name__ == '__main__':
     jap = [y.split() for (_, y) in pairs]
     alpha = Forward(eng[0], jap[0], probs, 3)
     beta = Backward(eng[0], jap[0], probs, 3)
-    fc = FindFracCounts(alpha, beta)
+    fc = FindFracCounts(eng[0], jap[0], alpha, beta, probs, 3)
     print fc
