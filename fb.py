@@ -1,10 +1,28 @@
 from collections import defaultdict
 
+'''
+Expectation
+compute forward and backward probabilities
+then return fractional counts of each alignment
+
+wordPairs:  (string, string) of English, Japanese
+prior:      dict mapping e->j->p where p is current prob. est.
+maxE2J:     maximum k in k-to-1 mapping
+'''
 def Expectation(wordPairs, prior, maxE2J):
+    fracCount = defaultdict(lambda : defaultdict(float))
     for eword, jword in wordPairs:
         e, j = eword.split(), jword.split()
+        # compute forward and backward prob for each word
         alpha = Forward(e, j, prior, maxE2J)
         beta = Backward(e, j, prior, maxE2J)
+        # sum the fractional counts
+        c = FindFracCounts(e, j, alpha, beta, prior, maxE2J)
+        for ep, js_co in c.items():
+            for js, co in js_co.items():
+                fracCount[ep][js] += co
+
+    return fracCount
 
 
 
@@ -31,6 +49,13 @@ def Forward(eprons, jprons, prior, maxE2J):
 
 
 
+'''
+backward
+eprons:     list of English sounds
+jprons:     list of Japanese sounds
+prior:      dict mapping e->j->p where p is current prob. est.
+maxE2J:     maximum k in k-to-1 mapping
+'''
 def Backward(eprons, jprons, prior, maxE2J):
     # beta: prob. of getting to final state from this state
     numJ, numE = len(jprons), len(eprons)
@@ -46,10 +71,19 @@ def Backward(eprons, jprons, prior, maxE2J):
 
 
 
+'''
+backward
+eprons:     list of English sounds
+jprons:     list of Japanese sounds
+alpha:      array of forward probabilities by [epron][jpron]
+beta:       array of backward probabilities
+prior:      dict mapping e->j->p where p is current prob. est.
+maxE2J:     maximum k in k-to-1 mapping
+'''
 def FindFracCounts(eprons, jprons, alpha, beta, prior, maxE2J):
     numJ, numE = len(jprons), len(eprons)
     counts = defaultdict(lambda : defaultdict(float))
-    total = 0.
+
     # sum probabilities for each alignment
     for i in range(numE):
         for j in range(numJ):
@@ -58,18 +92,19 @@ def FindFracCounts(eprons, jprons, alpha, beta, prior, maxE2J):
                 # count for align is forward * backward * prior probability
                 c = alpha[i][j + k - 1] * beta[i][j + k - 1] * prior[ep][js]
                 counts[ep][js] += c
-                total += c
     # normalize
     for e, d in counts.items():
         for j in d.keys():
-            counts[e][j] /= total
+            counts[e][j] /= beta[0][0]
 
     return counts
 
 
 
-
-
+'''
+ReadEpronJpron
+get word pairs from file
+'''
 def ReadEpronJpron(filename):
     wordPairs = []
     with open(filename) as fp:
@@ -84,6 +119,10 @@ def ReadEpronJpron(filename):
 
 
 
+'''
+InitProb
+initialize probabilities of possible alignments as uniform distribution
+'''
 def InitProb(pairs):
     counts = defaultdict(lambda : defaultdict(int))
     # count every possible alignment
@@ -97,7 +136,6 @@ def InitProb(pairs):
                     if len(js) != 0:
                         js = tuple(js)
                         counts[ep][js] += 1
-
 
     # initialize probabilities from "observed" counts
     probs = defaultdict(lambda : defaultdict(float))
@@ -114,9 +152,6 @@ if __name__ == '__main__':
     fname = 'data/epron-jpron.data'
     pairs = ReadEpronJpron(fname)
     probs = InitProb(pairs)
-    eng = [x.split() for (x, _) in pairs]
-    jap = [y.split() for (_, y) in pairs]
-    alpha = Forward(eng[0], jap[0], probs, 3)
-    beta = Backward(eng[0], jap[0], probs, 3)
-    fc = FindFracCounts(eng[0], jap[0], alpha, beta, probs, 3)
+    fc = Expectation(pairs, probs, 3)
+
     print fc
