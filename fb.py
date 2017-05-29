@@ -1,3 +1,4 @@
+from __future__ import print_function
 from collections import defaultdict
 
 '''
@@ -23,6 +24,11 @@ def Expectation(wordPairs, prior, maxE2J):
                 fracCount[ep][js] += co
 
     return fracCount
+
+
+
+#def Maximization(wordPairs, counts, prior, maxE2J):
+
 
 
 
@@ -152,6 +158,9 @@ if __name__ == '__main__':
     fname = 'data/epron-jpron.data'
     pairs = ReadEpronJpron(fname)
     probs = InitProb(pairs)
-    fc = Expectation(pairs, probs, 3)
 
-    print fc
+    for i in range(100):
+        print('iter {}'.format(i))
+        probs = Expectation(pairs, probs, 3)
+
+    print(probs)
