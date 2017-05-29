@@ -58,7 +58,8 @@ def Forward(eprons, jprons, prior, maxE2J):
                 ep, js = eprons[i], tuple(jprons[j : j + k])
                 alpha[i + 1][j + k] += alpha[i][j] * prior[ep][js]
 
-    return [row[1 :] for row in alpha[1 :]]
+    return alpha
+    #return [row[1 :] for row in alpha[1 :]]
 
 
 
@@ -79,8 +80,8 @@ def Backward(eprons, jprons, prior, maxE2J):
             for k in range(min(j, maxE2J) + 1):
                 ep, js = eprons[i], tuple(jprons[j - k : j + 1])
                 beta[i][j - k] += beta[i + 1][j + 1] * prior[ep][js]
-
-    return [row[: numJ] for row in beta[: numE]]
+    return beta
+    #return [row[: numJ] for row in beta[: numE]]
 
 
 
