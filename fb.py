@@ -27,7 +27,15 @@ def Expectation(wordPairs, prior, maxE2J):
 
 
 
-#def Maximization(wordPairs, counts, prior, maxE2J):
+def Maximization(wordPairs, counts, prior, maxE2J):
+    # recompute probabilities based on new "data"
+    for eword, jword in wordPairs:
+        eword, jword = eword.split(), jword.split()
+        for ephon in eword:
+            for j in range(len(jword)):
+                for k in range(1, min(len(jword) - j, maxE2J) + 1):
+                    js = tuple(jword[j : j + k])
+                    # prob = ??
 
 
 
@@ -158,9 +166,10 @@ if __name__ == '__main__':
     fname = 'data/epron-jpron.data'
     pairs = ReadEpronJpron(fname)
     probs = InitProb(pairs)
+    counts = Expectation(pairs, probs, 3)
 
-    for i in range(100):
-        print('iter {}'.format(i))
-        probs = Expectation(pairs, probs, 3)
-
-    print(probs)
+    # we need to do the maximization step, but for now I'll print the fractional counts
+    for e, jp in counts.items():
+        print('\n*** {} ***'.format(e))
+        for j, p in jp.items():
+            print('\t\t{} : {}'.format(j, p))
