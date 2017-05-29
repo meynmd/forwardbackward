@@ -27,15 +27,15 @@ def Expectation(wordPairs, prior, maxE2J):
 
 
 
-def Maximization(wordPairs, counts, prior, maxE2J):
-    # recompute probabilities based on new "data"
-    for eword, jword in wordPairs:
-        eword, jword = eword.split(), jword.split()
-        for ephon in eword:
-            for j in range(len(jword)):
-                for k in range(1, min(len(jword) - j, maxE2J) + 1):
-                    js = tuple(jword[j : j + k])
-                    # prob = ??
+# def Maximization(wordPairs, counts, prior, maxE2J):
+#     # recompute probabilities based on new "data"
+#     for eword, jword in wordPairs:
+#         eword, jword = eword.split(), jword.split()
+#         for ephon in eword:
+#             for j in range(len(jword)):
+#                 for k in range(1, min(len(jword) - j, maxE2J) + 1):
+#                     js = tuple(jword[j : j + k])
+#                     # prob = ??
 
 
 
@@ -49,7 +49,7 @@ maxE2J:     maximum k in k-to-1 mapping
 def Forward(eprons, jprons, prior, maxE2J):
     # alpha: prob. of getting to this state by some path from start
     numJ, numE = len(jprons), len(eprons)
-    alpha = [[0. for i in range(numJ + 1)] for j in range(numE + 1)]
+    alpha = [[0. for i in range(numJ + 2)] for j in range(numE + 2)]
     alpha[0][0] = 1.
     # find alpha for each alignment
     for i in range(numE):
@@ -80,13 +80,17 @@ def Backward(eprons, jprons, prior, maxE2J):
             for k in range(min(j, maxE2J) + 1):
                 ep, js = eprons[i], tuple(jprons[j - k : j + 1])
                 beta[i][j - k] += beta[i + 1][j + 1] * prior[ep][js]
+
+    for row in beta:
+        row.insert(0, 0)
+    beta.insert(0, [0 for x in beta[-1]])
     return beta
     #return [row[: numJ] for row in beta[: numE]]
 
 
 
 '''
-backward
+FindFracCounts
 eprons:     list of English sounds
 jprons:     list of Japanese sounds
 alpha:      array of forward probabilities by [epron][jpron]
@@ -98,18 +102,25 @@ def FindFracCounts(eprons, jprons, alpha, beta, prior, maxE2J):
     numJ, numE = len(jprons), len(eprons)
     counts = defaultdict(lambda : defaultdict(float))
 
-    # sum probabilities for each alignment
-    for i in range(numE):
-        for j in range(numJ):
-            for k in range(1, min(numJ - j, maxE2J) +1):
-                ep, js = eprons[i], tuple(jprons[j: j + k])
-                # count for align is forward * backward * prior probability
-                c = alpha[i][j + k - 1] * beta[i][j + k - 1] * prior[ep][js]
-                counts[ep][js] += c
-    # normalize
+    alignProbs = {}
+    for a in EnumAligns(eprons, jprons, []):
+        e, j = 0, 0
+        p_x_z = 1.
+        for (ep, js) in a:
+            e += 1
+            j += len(js)
+            #p(x | z) : whole word alignment prob
+            p_x_z *= alpha[e][j] * beta[e][j] * prior[ep][js]
+
+            counts[ep][js] += 1
+
+    # now we need to do something with p_x_z
+
+
+    # normalize...?
     for e, d in counts.items():
         for j in d.keys():
-            counts[e][j] /= beta[0][0]
+            counts[e][j] /= beta[1][1]
 
     return counts
 
@@ -158,6 +169,10 @@ def EnumAligns(ephon, jphon, pre = []):
 
 
 
+'''
+InitProb
+initialize probabilities of possible alignments
+'''
 def InitProb(pairs):
     counts = defaultdict(lambda: defaultdict(int))
     for ew, jw in pairs:
@@ -176,34 +191,6 @@ def InitProb(pairs):
 
     return probs
 
-
-
-'''
-InitProb
-initialize probabilities of possible alignments
-'''
-def BadInitProb(pairs):
-    counts = defaultdict(lambda : defaultdict(int))
-    # count every possible alignment
-    for ew, jw in pairs:
-        jw = jw.split()
-        for i, ep in enumerate(ew.split()):
-            for j in range(len(jw)):
-                # match to 1, 2 or 3 Japanese sounds
-                for k in range(min(3, len(jw) - j) + 1):
-                    js = jw[j : j + k]
-                    if len(js) != 0:
-                        js = tuple(js)
-                        counts[ep][js] += 1
-
-    # initialize probabilities from "observed" counts
-    probs = defaultdict(lambda : defaultdict(float))
-    for ep, js_co in counts.items():
-        n = sum(js_co.values())
-        for js, co in js_co.items():
-            probs[ep][js] = float(co) / n
-
-    return probs
 
 
 
