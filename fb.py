@@ -39,7 +39,6 @@ def Maximization(wordPairs, counts, prior, maxE2J):
 
 
 
-
 '''
 forward
 eprons:     list of English sounds
@@ -134,10 +133,55 @@ def ReadEpronJpron(filename):
 
 
 '''
-InitProb
-initialize probabilities of possible alignments as uniform distribution
+EnumAligns
+enumerate all possible alignments
+ephon:  list of English phonemes
+jphon:  list of Japanese phonemes
 '''
+def EnumAligns(ephon, jphon, pre = []):
+    aligns = []
+    ep = ephon[0]
+    for i in range(1, min(3, len(jphon)) + 1):
+        js = tuple(jphon[: i])
+        if len(ephon) == 1 and len(jphon) - i == 0:
+            aligns.append(pre + [(ep, js)])
+        elif len(ephon) == 1 or len(jphon) - i == 0:
+            continue
+        else:
+            s = [(ep, js)]
+            post = EnumAligns(ephon[1 :], jphon[i :], s)
+            for p in post:
+                aligns.append(pre + p)
+
+    return aligns
+
+
+
 def InitProb(pairs):
+    counts = defaultdict(lambda: defaultdict(int))
+    for ew, jw in pairs:
+        ew, jw = ew.split(), jw.split()
+        aligns = EnumAligns(ew, jw, [])
+        for alt in aligns:
+            for (ep, js) in alt:
+                counts[ep][js] += 1
+
+    # initialize probabilities from "observed" counts
+    probs = defaultdict(lambda : defaultdict(float))
+    for ep, js_co in counts.items():
+        n = sum(js_co.values())
+        for js, co in js_co.items():
+            probs[ep][js] = float(co) / n
+
+    return probs
+
+
+
+'''
+InitProb
+initialize probabilities of possible alignments
+'''
+def BadInitProb(pairs):
     counts = defaultdict(lambda : defaultdict(int))
     # count every possible alignment
     for ew, jw in pairs:
@@ -168,7 +212,13 @@ if __name__ == '__main__':
     probs = InitProb(pairs)
     counts = Expectation(pairs, probs, 3)
 
-    # we need to do the maximization step, but for now I'll print the fractional counts
+    # (e, j) = pairs[0]
+    # e, j = e.split(), j.split()
+    # aligns = EnumAligns(e, j, [])
+    # for a in aligns:
+    #     print('{}'.format(a))
+
+    #we need to do the maximization step, but for now I'll print the fractional counts
     for e, jp in counts.items():
         print('\n*** {} ***'.format(e))
         for j, p in jp.items():
