@@ -27,8 +27,15 @@ def Expectation(wordPairs, prior, maxE2J):
 
 
 
-#def Maximization(wordPairs, counts, prior, maxE2J):
-
+def Maximization(wordPairs, counts, prior, maxE2J):
+    # recompute probabilities based on new "data"
+    for eword, jword in wordPairs:
+        eword, jword = eword.split(), jword.split()
+        for ephon in eword:
+            for j in range(len(jword)):
+                for k in range(1, min(len(jword) - j, maxE2J) + 1):
+                    js = tuple(jword[j : j + k])
+                    # prob = ??
 
 
 
@@ -126,10 +133,55 @@ def ReadEpronJpron(filename):
 
 
 '''
-InitProb
-initialize probabilities of possible alignments as uniform distribution
+EnumAligns
+enumerate all possible alignments
+ephon:  list of English phonemes
+jphon:  list of Japanese phonemes
 '''
+def EnumAligns(ephon, jphon, pre = []):
+    aligns = []
+    ep = ephon[0]
+    for i in range(1, min(3, len(jphon)) + 1):
+        js = tuple(jphon[: i])
+        if len(ephon) == 1 and len(jphon) - i == 0:
+            aligns.append(pre + [(ep, js)])
+        elif len(ephon) == 1 or len(jphon) - i == 0:
+            continue
+        else:
+            s = [(ep, js)]
+            post = EnumAligns(ephon[1 :], jphon[i :], s)
+            for p in post:
+                aligns.append(pre + p)
+
+    return aligns
+
+
+
 def InitProb(pairs):
+    counts = defaultdict(lambda: defaultdict(int))
+    for ew, jw in pairs:
+        ew, jw = ew.split(), jw.split()
+        aligns = EnumAligns(ew, jw, [])
+        for alt in aligns:
+            for (ep, js) in alt:
+                counts[ep][js] += 1
+
+    # initialize probabilities from "observed" counts
+    probs = defaultdict(lambda : defaultdict(float))
+    for ep, js_co in counts.items():
+        n = sum(js_co.values())
+        for js, co in js_co.items():
+            probs[ep][js] = float(co) / n
+
+    return probs
+
+
+
+'''
+InitProb
+initialize probabilities of possible alignments
+'''
+def BadInitProb(pairs):
     counts = defaultdict(lambda : defaultdict(int))
     # count every possible alignment
     for ew, jw in pairs:
@@ -158,9 +210,16 @@ if __name__ == '__main__':
     fname = 'data/epron-jpron.data'
     pairs = ReadEpronJpron(fname)
     probs = InitProb(pairs)
+    counts = Expectation(pairs, probs, 3)
 
-    for i in range(100):
-        print('iter {}'.format(i))
-        probs = Expectation(pairs, probs, 3)
+    # (e, j) = pairs[0]
+    # e, j = e.split(), j.split()
+    # aligns = EnumAligns(e, j, [])
+    # for a in aligns:
+    #     print('{}'.format(a))
 
-    print(probs)
+    #we need to do the maximization step, but for now I'll print the fractional counts
+    for e, jp in counts.items():
+        print('\n*** {} ***'.format(e))
+        for j, p in jp.items():
+            print('\t\t{} : {}'.format(j, p))
